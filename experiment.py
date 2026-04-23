@@ -73,6 +73,13 @@ def pgd(model, x, y, eps, alpha=0.01, iters=PGD_ITERS, random_start=False):
             x_adv = torch.max(torch.min(x_adv, x_orig + eps), x_orig - eps).clamp(0, 1).detach()
     return x_adv
 
+def pgd_eval(model, x, y, eps):
+    """Madry-style evaluation PGD: alpha = 2.5*eps/iters so the attack can reach the
+    entire eps-ball boundary; random start breaks symmetry. Falls back to alpha=0.01
+    for eps=0 (no-op eval)."""
+    alpha = max(0.01, 2.5 * eps / PGD_ITERS)
+    return pgd(model, x, y, eps, alpha=alpha, iters=PGD_ITERS, random_start=True)
+
 # ---------- training ----------
 ADV_TRAIN_EPOCHS = 5  # adversarial training needs more epochs to converge
 
@@ -117,16 +124,16 @@ fgsm_clean = [accuracy(net, eval_loader, attack=(None if e == 0 else fgsm), eps=
 print("    " + ", ".join(f"{e:.2f}:{a:.3f}" for e, a in zip(EPS_GRID, fgsm_clean)))
 
 # ---------- E3: PGD sweep on clean ----------
-print("\n[E3] PGD sweep (clean model)")
-pgd_clean  = [accuracy(net, eval_loader, attack=(None if e == 0 else pgd), eps=e) for e in EPS_GRID]
+print("\n[E3] PGD sweep (clean model)  alpha=2.5*eps/T, random_start=True")
+pgd_clean  = [accuracy(net, eval_loader, attack=(None if e == 0 else pgd_eval), eps=e) for e in EPS_GRID]
 print("    " + ", ".join(f"{e:.2f}:{a:.3f}" for e, a in zip(EPS_GRID, pgd_clean)))
 
 # ---------- E4: adversarial training ----------
 print("\n[E4] Adversarial training (PGD-7, eps=0.3, Madry-style)")
 net_rob = SimpleCNN()
 t = time.time(); train(net_rob, train_loader, adv_eps=0.3); e4_time = time.time() - t
-fgsm_rob = [accuracy(net_rob, eval_loader, attack=(None if e == 0 else fgsm), eps=e) for e in EPS_GRID]
-pgd_rob  = [accuracy(net_rob, eval_loader, attack=(None if e == 0 else pgd), eps=e) for e in EPS_GRID]
+fgsm_rob = [accuracy(net_rob, eval_loader, attack=(None if e == 0 else fgsm),     eps=e) for e in EPS_GRID]
+pgd_rob  = [accuracy(net_rob, eval_loader, attack=(None if e == 0 else pgd_eval), eps=e) for e in EPS_GRID]
 rob_clean_acc = accuracy(net_rob, test_loader)
 print(f"    robust model clean acc = {rob_clean_acc:.4f}  |  adv training time = {e4_time:.1f}s")
 print("    FGSM/rob: " + ", ".join(f"{e:.2f}:{a:.3f}" for e, a in zip(EPS_GRID, fgsm_rob)))

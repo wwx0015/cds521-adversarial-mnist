@@ -1,4 +1,4 @@
 attack,iterations,wall_clock_s_per_1024,relative_cost
-FGSM,1,0.0340,1.00
-PGD,7,0.2346,6.90
-PGD,20,0.8171,24.03
+FGSM,1,0.0474,1.00
+PGD,7,0.3045,6.43
+PGD,20,0.8290,17.50

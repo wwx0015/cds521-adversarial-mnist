@@ -14,10 +14,10 @@ A systematic study of the Fast Gradient Sign Method (FGSM), Projected Gradient D
 
 | Model | Clean acc | FGSM @ ε = 0.3 | PGD-20 @ ε = 0.3 |
 |---|---:|---:|---:|
-| Standard CNN | **98.88 %** | 2.26 % | 2.36 % |
-| PGD adversarially trained | 93.03 % | **83.67 %** | **82.95 %** |
+| Standard CNN | **98.86 %** | 2.56 % | **0.00 %** |
+| PGD adversarially trained | 93.71 % | **86.13 %** | **79.00 %** |
 
-Adversarial training recovers > 82 % accuracy under a strong PGD attack where the standard model is reduced to essentially random, at a cost of ≈ 6 pp clean accuracy and 8.5× training time.
+PGD-20 uses the Madry protocol (α = 2.5 ε / T, random start) — it reaches the full ε-ball and saturates the standard model at 0 % by ε = 0.25. Adversarial training recovers 79 % accuracy under this strong attack at ε = 0.3, at a cost of ≈ 5.2 pp clean accuracy and 6.6× training time.
 
 ![robustness curves and per-class accuracy](outputs/fig2_curves.png)
 

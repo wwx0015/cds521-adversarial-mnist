@@ -35,7 +35,8 @@
 
 \title{\vspace{-1.2cm}\textbf{\large On Adversarial Attacks and Defenses in Deep Learning:\\ A Systematic Study on MNIST}}
 \author{\normalsize Wang Wenxuan \quad\textbar\quad Student ID: 1397228 \\
-\small CDS521 Foundation of AI \quad\textbar\quad Deadline: 24 April 2026}
+\small CDS521 Foundation of AI \quad\textbar\quad Deadline: 24 April 2026 \\
+\footnotesize Code and data: \url{https://github.com/wwx0015/cds521-adversarial-mnist}}
 \date{\vspace{-1em}}
 
 \begin{document}
@@ -44,7 +45,7 @@
 
 \begin{abstract}
 \small
-Deep neural networks, despite super-human accuracy on vision benchmarks, can be fooled by imperceptibly small perturbations crafted by adversaries. This dissertation surveys the threat model, taxonomy, and defenses of \emph{adversarial machine learning}, and reports a controlled empirical study on MNIST. Using a four-layer convolutional classifier (421\,K parameters) trained on an NVIDIA RTX~2050 GPU, we (i)~implement the Fast Gradient Sign Method (FGSM) and Projected Gradient Descent (PGD) as white-box $L_\infty$ attacks, (ii)~compare them against a Madry-style PGD adversarially trained variant, and (iii)~analyze class-level vulnerability and compute cost. At $\varepsilon\!=\!0.3$, PGD-20 reduces the baseline's accuracy from $\mathbf{98.88\%}$ to $\mathbf{2.36\%}$, whereas the adversarially trained model retains $\mathbf{82.95\%}$. Adversarial training costs $\approx\!6$\,pp in clean accuracy and an $8.5\times$ training wall-clock overhead, and robustness is demonstrably non-uniform across digit classes. These results reproduce, at small scale, the central finding of Madry \emph{et~al.}~(2018) and motivate our discussion of certified defenses and physically realizable attacks.
+Deep neural networks, despite high accuracy on many vision benchmarks, can be fooled by imperceptibly small perturbations crafted by adversaries. This dissertation surveys the threat model, taxonomy, and defenses of \emph{adversarial machine learning}, and reports a controlled empirical study on MNIST. Using a four-layer convolutional classifier (421\,K parameters) trained on an NVIDIA RTX~2050 GPU, we (i)~implement the Fast Gradient Sign Method (FGSM) and Projected Gradient Descent (PGD) as white-box $L_\infty$ attacks, (ii)~compare them against a Madry-style PGD adversarially trained variant, and (iii)~analyze class-level vulnerability and compute cost. At $\varepsilon\!=\!0.3$, PGD-20 reduces the baseline's accuracy from $\mathbf{98.86\%}$ to effectively $\mathbf{0\%}$, whereas the adversarially trained model retains $\mathbf{79.00\%}$. Adversarial training costs $\approx\!5.2$\,pp in clean accuracy and a $6.6\times$ training wall-clock overhead, and robustness is demonstrably non-uniform across digit classes. These results are consistent with the central finding of Madry \emph{et~al.}~(2018) at small scale, and motivate our discussion of certified defenses and physically realizable attacks.
 \end{abstract}
 
 \section{Introduction}
@@ -77,12 +78,12 @@ $\delta^\star = \varepsilon\,\mathrm{sign}\!\bigl(\nabla_x\mathcal{L}\bigr)$, gi
 
 \textbf{Threat model.} Following~\citet{nist2021aml}, an adversary is characterized by four axes: \emph{goal} (targeted/untargeted), \emph{knowledge} (white-/grey-/black-box), \emph{capability} ($L_p$ budget, query budget, physical constraints), and \emph{access} (train-time poisoning vs.\ test-time evasion). This study focuses on \textbf{white-box, test-time, untargeted, $L_\infty$-bounded evasion}.
 
-\textbf{Pipeline.} (1)~obtain a pretrained classifier; (2)~for each test input, compute $\nabla_x\mathcal{L}$ via back-propagation; (3)~synthesize $\delta$ under the chosen budget; (4)~measure attack success; (5)~for defense, retrain with the attack in the loop, approximating Eq.~\eqref{eq:minmax}.
+\textbf{Pipeline.} (1)~train or obtain a target classifier; (2)~for each test input, compute $\nabla_x\mathcal{L}$ via back-propagation; (3)~synthesize $\delta$ under the chosen budget; (4)~measure attack success; (5)~for defense, retrain with the attack in the loop, approximating Eq.~\eqref{eq:minmax}.
 
 \section{Implementation}
 \label{sec:impl}
 
-We train a CNN (two $3{\times}3$ conv + max-pool blocks, 128-unit FC head; 421\,K parameters) on MNIST for 3 epochs with Adam ($\eta=10^{-3}$, batch 128). The full 10\,000-sample test set is used for evaluation. Seven $\varepsilon$ values are swept, $\varepsilon\in\{0,.05,.10,.15,.20,.25,.30\}$. Four model\,$\times$\,attack conditions are compared: (standard, adv-trained) $\times$ (FGSM, PGD-20). PGD uses $\alpha\!=\!0.01$ and $T\!=\!20$. The adversarially trained model is obtained via PGD-7 with random initialization, $\alpha\!=\!\varepsilon/4$, $\varepsilon\!=\!0.3$, for 5 epochs (Madry-style). All experiments run on an NVIDIA GeForce RTX~2050 (4\,GB). Key FGSM pseudocode:
+We train a CNN (two $3{\times}3$ conv + max-pool blocks, 128-unit FC head; 421\,K parameters) on MNIST for 3 epochs with Adam ($\eta=10^{-3}$, batch 128). The full 10\,000-sample test set is used for evaluation. Seven $\varepsilon$ values are swept, $\varepsilon\in\{0,.05,.10,.15,.20,.25,.30\}$. Four model\,$\times$\,attack conditions are compared: (standard, adv-trained) $\times$ (FGSM, PGD-20). Evaluation PGD follows the Madry protocol: $T\!=\!20$ steps, random start, step size $\alpha\!=\!2.5\varepsilon/T$ (so the attack can reach the full $\varepsilon$-ball). The adversarially trained model is obtained via PGD-7 with random initialization, $\alpha\!=\!\varepsilon/4$, $\varepsilon\!=\!0.3$, for 5 epochs (Madry-style). All experiments run on an NVIDIA GeForce RTX~2050 (4\,GB). Key FGSM pseudocode:
 
 \begin{lstlisting}
 def fgsm(model, x, y, eps):
@@ -95,7 +96,7 @@ def fgsm(model, x, y, eps):
 \section{Experimental Results}
 \label{sec:results}
 
-\textbf{Clean accuracy.} The baseline reaches $\mathbf{98.88\%}$ on the 10k test set; the PGD adversarially trained variant attains $\mathbf{93.03\%}$---a $5.85$\,pp tax for robustness.
+\textbf{Clean accuracy.} The baseline reaches $\mathbf{98.86\%}$ on the 10k test set; the PGD adversarially trained variant attains $\mathbf{93.71\%}$---a $5.15$\,pp tax for robustness.
 
 \textbf{Qualitative visualization.} Figure~\ref{fig:samples} shows two MNIST digits, their FGSM perturbations at $\varepsilon\!=\!0.25$, and the resulting adversarial images. The perturbations resemble low-amplitude noise, yet both predictions flip with high confidence (7\,$\!\to\!$\,3 and 2\,$\!\to\!$\,6).
 
@@ -115,16 +116,16 @@ def fgsm(model, x, y, eps):
     \toprule
     $\varepsilon$ & FGSM / std & PGD / std & FGSM / rob & PGD / rob \\
     \midrule
-    0.00 & 98.88 & 98.88 & 93.03 & 93.03 \\
-    0.05 & 95.29 & 93.64 & 91.31 & 91.09 \\
-    0.10 & 84.79 & 69.20 & 89.53 & 88.38 \\
-    0.15 & 60.62 & 21.75 & 87.48 & 85.56 \\
-    0.20 & 31.87 & \phantom{0}2.36 & 85.90 & 82.95 \\
-    0.25 & 10.46 & \phantom{0}2.36 & 84.78 & 82.95 \\
-    0.30 & \phantom{0}2.26 & \phantom{0}2.36 & 83.67 & 82.95 \\
+    0.00 & 98.86 & 98.86 & 93.71 & 93.71 \\
+    0.05 & 95.36 & 93.84 & 92.09 & 91.92 \\
+    0.10 & 84.47 & 69.48 & 90.47 & 89.92 \\
+    0.15 & 60.38 & 18.84 & 89.00 & 87.97 \\
+    0.20 & 31.71 & \phantom{0}0.47 & 87.80 & 85.54 \\
+    0.25 & 11.19 & \phantom{0}0.00 & 86.92 & 82.89 \\
+    0.30 & \phantom{0}2.56 & \phantom{0}0.00 & 86.13 & 79.00 \\
     \bottomrule
   \end{tabular}
-  \caption{Test accuracy (\%) of the standard and PGD adversarially trained CNN under FGSM and PGD-20 attacks across the $L_\infty$ budget grid.}
+  \caption{Test accuracy (\%) of the standard and PGD adversarially trained CNN under FGSM and PGD-20 across the $L_\infty$ budget grid. PGD saturates at $0\%$ on the standard model by $\varepsilon\!=\!0.25$.}
   \label{tab:acc}
 \end{table}
 
@@ -139,12 +140,12 @@ def fgsm(model, x, y, eps):
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=0.70\textwidth]{outputs/fig3_confusion.png}
+  \includegraphics[width=0.55\textwidth]{outputs/fig3_confusion.png}
   \caption{Confusion matrices before (blue) and after (red) a white-box FGSM attack at $\varepsilon\!=\!0.2$ on the standard model. Under attack, errors concentrate into a few ``attractor'' classes rather than scattering uniformly, indicating structured rather than random failure.}
   \label{fig:confusion}
 \end{figure*}
 
-\textbf{Compute cost.} Table~\ref{tab:cost} contrasts the wall-clock cost of the three attacks on 1\,024 images on the RTX~2050. PGD-20---the standard evaluation adversary---is $24\times$ more expensive than FGSM, making attack strength a routine engineering trade-off during model assurance.
+\textbf{Compute cost.} Table~\ref{tab:cost} contrasts the wall-clock cost of the three attacks on 1\,024 images on the RTX~2050. PGD-20---the standard evaluation adversary---is $17.5\times$ more expensive than FGSM, making attack strength a routine engineering trade-off during model assurance.
 
 \begin{table}[h!]
   \centering\small
@@ -152,26 +153,26 @@ def fgsm(model, x, y, eps):
     \toprule
     Attack & Iterations & Time (s) / 1024 & Relative \\
     \midrule
-    FGSM  & 1  & 0.034 & \phantom{0}1.00$\times$ \\
-    PGD   & 7  & 0.235 & \phantom{0}6.90$\times$ \\
-    PGD   & 20 & 0.817 & 24.03$\times$ \\
+    FGSM  & 1  & 0.047 & \phantom{0}1.00$\times$ \\
+    PGD   & 7  & 0.304 & \phantom{0}6.43$\times$ \\
+    PGD   & 20 & 0.829 & 17.50$\times$ \\
     \bottomrule
   \end{tabular}
   \caption{Wall-clock cost of each attack on 1\,024 MNIST test images (NVIDIA RTX 2050).}
   \label{tab:cost}
 \end{table}
 
-\textbf{Findings.} (i)~PGD dominates FGSM on the standard model at every $\varepsilon$; the gap grows from $1.65$ to $38.87$\,pp between $\varepsilon\!=\!0.05$ and $0.15$ and collapses thereafter as both attacks approach zero accuracy (Table~\ref{tab:acc}). (ii)~Adversarial training restores $\ge\!82.95\%$ accuracy under PGD-20 at $\varepsilon\!=\!0.3$, reproducing~\citet{madry2018towards} at small scale. (iii)~Robustness is \textbf{non-uniform across classes} (Figure~\ref{fig:curves}b): at $\varepsilon\!=\!0.2$, digit~1 retains $67.6\%$ accuracy while digit~9 falls to $11.8\%$. Digits with more visual ``competitors'' are attacked first, supporting the view that adversarial error concentrates along decision-boundary geometry rather than distributing uniformly. (iv)~PGD-20's $24\times$ compute cost over FGSM (Table~\ref{tab:cost}) matters when adversarial evaluation is a routine step in a CI pipeline. (v)~Adversarial training took $109.4$\,s vs.\ $12.8$\,s for clean training, an $8.5\times$ total overhead ($5\times$ per epoch from the PGD-7 inner loop plus $1.67\times$ from the longer schedule).
+\textbf{Findings.} (i)~PGD dominates FGSM on the standard model at every $\varepsilon$; the gap grows from $1.52$ to $41.54$\,pp between $\varepsilon\!=\!0.05$ and $0.15$ and closes only because PGD saturates at $0\%$ by $\varepsilon\!=\!0.25$ (Table~\ref{tab:acc}). (ii)~Adversarial training retains $79.00\%$ accuracy under PGD-20 at $\varepsilon\!=\!0.3$ while the standard model collapses to $0\%$---a result consistent with the central finding of \citet{madry2018towards} at small scale. (iii)~Robustness is \textbf{non-uniform across classes} (Figure~\ref{fig:curves}b): at $\varepsilon\!=\!0.2$, digit~1 retains $69.5\%$ accuracy while digit~9 falls to $13.0\%$. Digits with more visual ``competitors'' are attacked first, supporting the view that adversarial error concentrates along decision-boundary geometry rather than distributing uniformly. (iv)~PGD-20's $17.5\times$ compute cost over FGSM (Table~\ref{tab:cost}) matters when adversarial evaluation is a routine step in a CI pipeline. (v)~Adversarial training took $112.8$\,s vs.\ $17.0$\,s for clean training, a $6.6\times$ total overhead ($\approx\!4\times$ per epoch from the PGD-7 inner loop plus $1.67\times$ from the longer schedule).
 
 \section{Ethical Considerations}
 \label{sec:ethics}
 
-Adversarial ML is \textbf{dual-use}. Offensively, the same techniques that fool a stop-sign classifier can (i)~enable impersonation against biometric checkpoints, (ii)~craft deepfakes that evade forensic classifiers, or (iii)~bypass spam and malware filters. Publishing attack code therefore risks arming malicious actors. Yet \emph{withholding} attacks leaves defenders blind: \citet{nist2021aml} explicitly recommend disclosure because ``security through obscurity'' systematically favors attackers. A responsible stance---adopted here---reproduces published attacks on toy datasets while foregrounding defense. A second ethical axis concerns \textbf{fairness}: a robust classifier that has inherited demographic skew~\citep{bagdasaryan2019differential} can be attacked \emph{differentially} across groups, compounding fairness harms. Our per-class analysis (Figure~\ref{fig:curves}b) is the MNIST analogue of this concern---robustness gaps spanning $55.8$\,pp between easy and hard classes---motivating the reporting of \emph{worst-class} robustness alongside average accuracy.
+Adversarial ML is \textbf{dual-use}. Offensively, the same techniques that fool a stop-sign classifier can (i)~enable impersonation against biometric checkpoints, (ii)~craft deepfakes that evade forensic classifiers, or (iii)~bypass spam and malware filters. Publishing attack code therefore risks arming malicious actors. Yet \emph{withholding} attacks leaves defenders blind: \citet{nist2021aml} explicitly recommend disclosure because ``security through obscurity'' systematically favors attackers. A responsible stance---adopted here---reproduces published attacks on toy datasets while foregrounding defense. A second ethical axis concerns \textbf{fairness}: reporting only \emph{average} robustness can hide the fact that some classes or subgroups are markedly more vulnerable than others, so fairness harms may compound under adversarial attack~\citep{nist2021aml}. Our per-class analysis (Figure~\ref{fig:curves}b) is the MNIST analogue of this concern---robustness gaps spanning $56.5$\,pp between the easiest and hardest digit at $\varepsilon\!=\!0.2$---motivating the reporting of \emph{worst-class} robustness alongside average accuracy.
 
 \section{Future Directions}
 \label{sec:future}
 
-Three frontiers appear most promising. \textbf{(1)~Certified defenses.}~\citet{cohen2019certified} convert a base classifier into a provably robust one by majority-voting over Gaussian-noised inputs; the certificate scales favorably to ImageNet. \textbf{(2)~Physically realizable attacks.} Beyond digital perturbations, the \emph{Expectation-over-Transformation} framework produces adversaries robust to real-world imaging pipelines~\citep{athalye2018obfuscated}, motivating sensor-level and deployment-time defenses. \textbf{(3)~Foundation-model robustness.} Large pretrained models exhibit emergent behaviors under adversarial prompting~\citep{zou2023universal}; extending the $L_\infty$ threat model to text, speech, and multi-modal inputs is an open and socially consequential direction.
+Three frontiers appear most promising. \textbf{(1)~Certified defenses.}~\citet{cohen2019certified} convert a base classifier into a provably robust one by majority-voting over Gaussian-noised inputs; the certificate scales favorably to ImageNet. \textbf{(2)~Physically realizable attacks.} Beyond digital perturbations, the \emph{Expectation-over-Transformation} framework produces adversaries robust to real-world imaging pipelines~\citep{athalye2018synthesizing}, motivating sensor-level and deployment-time defenses. \textbf{(3)~Foundation-model robustness.} Large pretrained models exhibit emergent behaviors under adversarial prompting~\citep{zou2023universal}; extending the $L_\infty$ threat model to text, speech, and multi-modal inputs is an open and socially consequential direction.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -179,19 +180,19 @@ Three frontiers appear most promising. \textbf{(1)~Certified defenses.}~\citet{c
 We surveyed the landscape of adversarial machine learning and empirically reproduced FGSM, PGD, and Madry-style adversarial training on MNIST under a modest compute budget. The quantitative picture (Tables~\ref{tab:acc}--\ref{tab:cost}, Figures~\ref{fig:samples}--\ref{fig:confusion}) confirms that (i)~adversarial vulnerability is severe for standardly trained networks, (ii)~adversarial training is an effective, if computationally costly, remediation, (iii)~the benefit is non-uniform across classes, and (iv)~strong attacks are $24\times$ more expensive than weak ones. Trustworthy AI will require combining such empirical defenses with certified guarantees, physical-world evaluation, and careful dual-use ethics.
 
 {\scriptsize
-\setlength{\bibsep}{1.5pt}
+\setlength{\bibsep}{0pt plus 0.3ex}
 \bibliographystyle{unsrtnat}
 \begin{thebibliography}{13}
 
-\bibitem[Athalye et~al.(2018)]{athalye2018obfuscated}
+\bibitem[Athalye et~al.(2018a)]{athalye2018obfuscated}
 A.~Athalye, N.~Carlini, and D.~Wagner.
 \newblock Obfuscated gradients give a false sense of security.
 \newblock In \emph{ICML}, 2018.
 
-\bibitem[Bagdasaryan et~al.(2019)]{bagdasaryan2019differential}
-E.~Bagdasaryan, O.~Poursaeed, and V.~Shmatikov.
-\newblock Differential privacy has disparate impact on model accuracy.
-\newblock In \emph{NeurIPS}, 2019.
+\bibitem[Athalye et~al.(2018b)]{athalye2018synthesizing}
+A.~Athalye, L.~Engstrom, A.~Ilyas, and K.~Kwok.
+\newblock Synthesizing robust adversarial examples.
+\newblock In \emph{ICML}, 2018.
 
 \bibitem[Cohen et~al.(2019)]{cohen2019certified}
 J.~Cohen, E.~Rosenfeld, and Z.~Kolter.
@@ -218,9 +219,9 @@ A.~Madry, A.~Makelov, L.~Schmidt, D.~Tsipras, and A.~Vladu.
 \newblock Towards deep learning models resistant to adversarial attacks.
 \newblock In \emph{ICLR}, 2018.
 
-\bibitem[NIST(2021)]{nist2021aml}
-NIST.
-\newblock \emph{Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations}, NISTIR 8269 draft, 2021.
+\bibitem[Vassilev et~al.(2024)]{nist2021aml}
+A.~Vassilev, A.~Oprea, A.~Fordyce, and H.~Anderson.
+\newblock \emph{Adversarial ML: A Taxonomy and Terminology of Attacks and Mitigations}, NIST AI 100-2e2023, 2024.
 
 \bibitem[Papernot et~al.(2016)]{papernot2016practical}
 N.~Papernot, P.~McDaniel, I.~Goodfellow, et~al.
